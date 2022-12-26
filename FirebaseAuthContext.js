@@ -1,9 +1,7 @@
 import * as React from 'react';
 import { useEffect, useState } from 'react';
 import { useDispatch } from 'react-redux';
-// import FuseSplashScreen from '@fuse/core/FuseSplashScreen';
 import { showMessage } from 'app/store/fuse/messageSlice';
-// import { logoutUser, setUser } from 'app/store/userSlice';
 import { logoutFirebaseUser, setFirebaseUser } from 'app/store/firebaseUserSlice';
 import firebaseAuthService from './services/firebaseAuthService';
 import MinervaSplashScreen from '../core/MinervaSplashScreen';
@@ -12,59 +10,28 @@ import { firebaseAppAuth } from '../configs/firebaseConfig';
 const FirebaseAuthContext = React.createContext();
 
 function FirebaseAuthProvider({ children }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(undefined);
   const [waitAuthCheck, setWaitAuthCheck] = useState(true);
   const dispatch = useDispatch();
 
   useEffect(() => {
-    firebaseAuthService.on('onAutoLogin', () => {
-      dispatch(showMessage({ message: 'Signing in with Firebase Auth token' }));
-
-      /**
-       * Sign in and retrieve user data with stored token
-       */
-      firebaseAuthService
-        .signInWithToken()
-        .then((user) => {
-          success(user, 'Signed in with Firebase Auth token');
-        })
-        .catch((error) => {
-          pass(error.message);
-        });
-    });
-
     firebaseAuthService.on('onLogin', (user) => {
-      success(user, 'Signed in with Firebase!!!');
+      success(user, 'Signed in with Firebase Authentication');
     });
 
     firebaseAuthService.on('onLogout', () => {
-      pass('Signed out');
+      pass('Signed out from Firebase Authentication');
       dispatch(logoutFirebaseUser());
     });
 
-    firebaseAuthService.on('onAutoLogout', (message) => {
-      pass(message);
-
-      dispatch(logoutFirebaseUser());
-    });
-
-    firebaseAuthService.on('onNoAccessToken', () => {
-      pass();
-    });
-
-    firebaseAuthService.init();
+    // firebaseAuthService.init();
 
     function success(user, message) {
       if (message) {
         dispatch(showMessage({ message }));
       }
 
-      Promise.all([
-        dispatch(setFirebaseUser(user)),
-        // You can receive data in here before app initialization
-      ]).then((values) => {
+      Promise.all([dispatch(setFirebaseUser(user))]).then((values) => {
         setWaitAuthCheck(false);
-        setIsAuthenticated(true);
       });
     }
 
@@ -72,17 +39,25 @@ function FirebaseAuthProvider({ children }) {
       if (message) {
         dispatch(showMessage({ message }));
       }
-
       setWaitAuthCheck(false);
-      setIsAuthenticated(false);
     }
 
-    // Firebase sets user via subscription. No need to collect user and pass it
     const unsubscribe = firebaseAppAuth.onAuthStateChanged((user) => {
       if (user) {
-        success(user, 'Signed in with Firebase now in callback for onAuthStateChanged');
+        const firebaseUser = {
+          data: {
+            displayName: user.displayName,
+            email: user.email,
+            photoURL: 'assets/images/logo/mg-logo-no-text.png',
+            shortcuts: ['apps.calendar', 'apps.mailbox', 'apps.contacts'],
+          },
+          uuid: user.uid,
+          from: 'firebase-auth',
+          role: 'admin',
+        };
+        success(firebaseUser, 'Signed in with Firebase Authentication token');
       } else {
-        pass('User seems to be null/falsy when running onAuthStateChanged callback');
+        pass();
       }
     });
 
@@ -93,9 +68,8 @@ function FirebaseAuthProvider({ children }) {
     <MinervaSplashScreen />
   ) : (
     // <h1>HEY! I am waiting for Firebase Auth Check!!!</h1>
-    <FirebaseAuthContext.Provider value={{ isAuthenticated }}>
-      {children}
-    </FirebaseAuthContext.Provider>
+    // <FirebaseAuthContext.Provider value={{ isAuthenticated }}>
+    <FirebaseAuthContext.Provider>{children}</FirebaseAuthContext.Provider>
   );
 }
 
